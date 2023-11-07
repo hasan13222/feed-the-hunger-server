@@ -73,6 +73,16 @@ async function run() {
       res.send(result);
     });
 
+    app.patch('/editFood/:id', async (req, res) => {
+        const id = req.params.id;
+        const updatedFood = {
+            $set: req.body
+        }
+        const query = {_id: new ObjectId(id)};
+        const result = await foodCollection.updateOne(query, updatedFood);
+        res.send(result);
+    })
+
     app.delete('/foodDelete/:id', async (req, res) => {
         const id = req.params.id;
         const query = {_id: new ObjectId(id)};
