@@ -1,6 +1,6 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config()
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
 const app = express();
 const port = process.env.PORT || 5000;
 
@@ -8,17 +8,87 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.jlioc3w.mongodb.net/?retryWrites=true&w=majority`;
 
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  },
+});
 
+async function run() {
+  try {
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
 
+    const foodCollection = client.db('foodDB').collection('foods');
+    const foodRequests = client.db('foodDB').collection('foodRequests');
 
+    app.get('/foods', async (req, res) => {
+        const result = await foodCollection.find().toArray();
+        res.send(result);
+    })
 
+    app.get("/foods/:foodId", async (req, res) => {
+        const id = req.params.foodId;
+        const query = { _id: new ObjectId(id) };
+        const result = await foodCollection.findOne(query);
+        res.send(result);
+      });
 
+    app.get('/featuredFoods', async (req, res) => {
+        const result = await foodCollection.aggregate([
+            {
+                $addFields: {
+                    qtyAsNumber: { $toInt: "$foodQty"}
+                }
+            },
+            {
+                $sort: { qtyAsNumber: -1}
+            }
+        ]).limit(6).toArray();
+        res.send(result);
+    })
 
-app.get('/', (req, res) =>{
-    res.send('FeedtheHunger is available')
-})
+    app.get('/myFoods', async (req, res) => {
+        const email = req.query.userEmail;
+        const query = {donorEmail: email};
+        const result = await foodCollection.find(query).toArray();
+        res.send(result);
+    })
 
-app.listen(port, () =>{
-    console.log(`feedthehunger server is running on port: ${port}`);
-})
+    app.post("/addFood", async (req, res) => {
+      const newFood = req.body;
+      const result = await foodCollection.insertOne(newFood);
+      res.send(result);
+    });
+
+    app.post("/requestFood", async (req, res) => {
+      const newFood = req.body;
+      const result = await foodRequests.insertOne(newFood);
+      res.send(result);
+    });
+
+    // Send a ping to confirm a successful connection
+    await client.db("admin").command({ ping: 1 });
+    console.log(
+      "Pinged your deployment. You successfully connected to MongoDB!"
+    );
+  } finally {
+    // Ensures that the client will close when you finish/error
+    // await client.close();
+  }
+}
+run().catch(console.dir);
+
+app.get("/", (req, res) => {
+  res.send("FeedtheHunger is available");
+});
+
+app.listen(port, () => {
+  console.log(`feedthehunger server is running on port: ${port}`);
+});
