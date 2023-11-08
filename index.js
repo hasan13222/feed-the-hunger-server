@@ -25,48 +25,64 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
 
-    const foodCollection = client.db('foodDB').collection('foods');
-    const foodRequests = client.db('foodDB').collection('foodRequests');
+    const foodCollection = client.db("foodDB").collection("foods");
+    const foodRequests = client.db("foodDB").collection("foodRequests");
 
-    app.get('/foods', async (req, res) => {
-        const result = await foodCollection.find().toArray();
-        res.send(result);
-    })
+    app.get("/foods", async (req, res) => {
+      const query = { foodStatus: "available" };
+      const result = await foodCollection.find(query).toArray();
+      res.send(result);
+    });
 
     app.get("/foods/:foodId", async (req, res) => {
-        const id = req.params.foodId;
-        const query = { _id: new ObjectId(id) };
-        const result = await foodCollection.findOne(query);
-        res.send(result);
-      });
+      const id = req.params.foodId;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.findOne(query);
+      res.send(result);
+    });
 
-    app.get('/featuredFoods', async (req, res) => {
-        const result = await foodCollection.aggregate([
-            {
-                $addFields: {
-                    qtyAsNumber: { $toInt: "$foodQty"}
-                }
+    app.get("/featuredFoods", async (req, res) => {
+      const result = await foodCollection
+        .aggregate([
+          {
+            $match: {
+              foodStatus: "available",
             },
-            {
-                $sort: { qtyAsNumber: -1}
-            }
-        ]).limit(6).toArray();
-        res.send(result);
-    })
+          },
+          {
+            $addFields: {
+              qtyAsNumber: { $toInt: "$foodQty" },
+            },
+          },
+          {
+            $sort: { qtyAsNumber: -1 },
+          },
+        ])
+        .limit(6)
+        .toArray();
+      res.send(result);
+    });
 
-    app.get('/myFoods', async (req, res) => {
-        const email = req.query.userEmail;
-        const query = {donorEmail: email};
-        const result = await foodCollection.find(query).toArray();
-        res.send(result);
-    })
+    app.get("/myFoods", async (req, res) => {
+      const email = req.query.userEmail;
+      const query = { donorEmail: email };
+      const result = await foodCollection.find(query).toArray();
+      res.send(result);
+    });
 
-    app.get('/manage/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = {foodId: id};
-        const result = await foodCollection.find(query).toArray();
-        res.send(result);
-    })
+    app.get("/manage/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { foodId: id };
+      const result = await foodRequests.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/myRequests", async (req, res) => {
+      const email = req.query.userEmail;
+      const query = { reqEmail: email };
+      const result = await foodRequests.find(query).toArray();
+      res.send(result);
+    });
 
     app.post("/addFood", async (req, res) => {
       const newFood = req.body;
@@ -80,32 +96,39 @@ async function run() {
       res.send(result);
     });
 
-    app.patch('/editFood/:id', async (req, res) => {
-        const id = req.params.id;
-        const updatedFood = {
-            $set: req.body
-        }
-        const query = {_id: new ObjectId(id)};
-        const result = await foodCollection.updateOne(query, updatedFood);
-        res.send(result);
-    })
+    app.patch("/editFood/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedFood = {
+        $set: req.body,
+      };
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.updateOne(query, updatedFood);
+      res.send(result);
+    });
 
-    app.patch('/foodStatus/:id', async (req, res) => {
-        const id = req.params.id;
-        const updatedFood = {
-            $set: req.body
-        }
-        const query = {_id: new ObjectId(id)};
-        const result = await foodCollection.updateOne(query, updatedFood);
-        res.send(result);
-    })
+    app.patch("/foodStatus/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedFood = {
+        $set: req.body,
+      };
+      const query = { _id: new ObjectId(id) };
+      const result = await foodRequests.updateOne(query, updatedFood);
+      res.send(result);
+    });
 
-    app.delete('/foodDelete/:id', async (req, res) => {
-        const id = req.params.id;
-        const query = {_id: new ObjectId(id)};
-        const result = await foodCollection.deleteOne(query);
-        res.send(result);
-    })
+    app.delete("/foodDelete/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    app.delete("/cancelRequest/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodRequests.deleteOne(query);
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
